@@ -1,0 +1,8 @@
+.git
+__pycache__
+*.pyc
+outputs/
+*.tar
+*.tar.zst
+*.log
+.DS_Store
