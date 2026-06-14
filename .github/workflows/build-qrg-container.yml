@@ -1,0 +1,60 @@
+name: Build QRG RunPod CUDA Container
+
+on:
+  workflow_dispatch:
+    inputs:
+      dockerfile:
+        description: "Dockerfile to build"
+        required: true
+        default: "Dockerfile"
+      image_tag:
+        description: "Image tag"
+        required: true
+        default: "latest"
+  push:
+    branches: [ main ]
+    paths:
+      - "Dockerfile"
+      - "Dockerfile.with_payload"
+      - "container/**"
+      - "docs/**"
+      - ".github/workflows/build-qrg-container.yml"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute lowercase owner
+        id: meta
+        shell: bash
+        run: |
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ github.event.inputs.dockerfile || 'Dockerfile' }}
+          push: true
+          tags: ghcr.io/${{ steps.meta.outputs.owner }}/qrg-h200-cuda:${{ github.event.inputs.image_tag || 'latest' }}
+          build-args: |
+            CUDA_IMAGE=nvidia/cuda:12.6.3-devel-ubuntu22.04
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
